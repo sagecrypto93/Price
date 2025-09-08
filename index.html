@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>OCM LTH Realized Price</title>
+  <title>OCM BTC Price</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
@@ -46,7 +46,7 @@
   </div>
 
   <script>
-    function buildTraces(priceData, realisedData) {
+    function buildTraces(priceData) {
       return [
         {
           x: priceData.map(d => d.date),
@@ -56,78 +56,67 @@
           name: 'BTC Price',
           line: { color: 'white', width: 1 },
           hovertemplate: '<b>Price:</b> $%{y:,.0f}<extra></extra>'
-        },
-       {
-  x: realisedData.map(d => d.date),
-  y: realisedData.map(d => d.realized_price_lth),  // <-- use correct field
-  type: 'scatter',
-  mode: 'lines',
-  name: 'Realized Price (LTH)',
-  line: { color: '#00BFFF', width: 1.5 },
-  hovertemplate: '<b>Realized Price (LTH):</b> $%{y:,.0f}<extra></extra>'
-}
+        }
       ];
     }
 
-    Promise.all([
-      fetch("/api/derived/price.js").then(r => r.json()),
-      fetch("/api/realizedprice.js").then(r => r.json())
-    ]).then(([priceResult, realisedResult]) => {
-      const cutoffDate = new Date('2013-02-01');
+    fetch("/api/derived/price.js")
+      .then(r => r.json())
+      .then(priceResult => {
+        const cutoffDate = new Date('2013-02-01');
+        const priceData = priceResult.data.filter(d => new Date(d.date) >= cutoffDate);
+        const lastDate = priceData[priceData.length - 1].date;
 
-      const priceData = priceResult.data.filter(d => new Date(d.date) >= cutoffDate);
-      const realisedData = realisedResult.data.filter(d => new Date(d.date) >= cutoffDate);
-      const lastDate = priceData[priceData.length - 1].date;
+        const layout = {
+          paper_bgcolor: '#18181D',
+          plot_bgcolor: '#18181D',
+          font: { color: 'white' },
+          margin: { t: 20, b: 5 },
+          hovermode: 'x unified',
+          xaxis: {
+            type: 'date',
+            range: ['2013-02-01', lastDate],
+            showspikes: true,
+            spikemode: 'across',
+            spikecolor: 'white',
+            spikethickness: 1
+          },
+          yaxis: {
+            title: 'Price (USD)',
+            type: 'log',
+            tickprefix: '$',
+            showline: false
+          },
+          legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.1 }
+        };
 
-      const layout = {
-        paper_bgcolor: '#18181D',
-        plot_bgcolor: '#18181D',
-        font: { color: 'white' },
-        margin: { t: 20, b: 5 },
-        hovermode: 'x unified',
-        xaxis: {
-          type: 'date',
-          range: ['2013-02-01', lastDate],
-          showspikes: true,
-          spikemode: 'across',
-          spikecolor: 'white',
-          spikethickness: 1
-        },
-        yaxis: {
-          title: 'Price (USD)',
-          type: 'log',
-          tickprefix: '$',
-          showline: false
-        },
-        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.1 }
-      };
+        const traces = buildTraces(priceData);
+        Plotly.newPlot('chart', traces, layout, { responsive: true }).then(() => {
+          const logo = document.getElementById('logo-front');
+          const downloadBtn = document.querySelector('.modebar-btn[data-title="Download plot as a png"]');
 
-      const traces = buildTraces(priceData, realisedData);
-      Plotly.newPlot('chart', traces, layout, { responsive: true }).then(() => {
-        const logo = document.getElementById('logo-front');
-        const downloadBtn = document.querySelector('.modebar-btn[data-title="Download plot as a png"]');
-
-        if (downloadBtn) {
-          downloadBtn.addEventListener('click', () => {
-            logo.style.display = 'none';
-            setTimeout(() => {
-              Plotly.downloadImage('chart', {
-                format: 'png',
-                width: 1600,
-                height: 900,
-                filename: 'OCM-Price-Realised'
-              }).then(() => {
-                logo.style.display = '';
-              });
-            }, 300);
-          });
-        }
+          if (downloadBtn) {
+            downloadBtn.addEventListener('click', () => {
+              logo.style.display = 'none';
+              setTimeout(() => {
+                Plotly.downloadImage('chart', {
+                  format: 'png',
+                  width: 1600,
+                  height: 900,
+                  filename: 'OCM-Price'
+                }).then(() => {
+                  logo.style.display = '';
+                });
+              }, 300);
+            });
+          }
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById('chart').innerHTML =
+          `<p style="color:red; text-align:center;">Failed to load data.</p>`;
       });
-    }).catch(err => {
-      console.error(err);
-      document.getElementById('chart').innerHTML =
-        `<p style="color:red; text-align:center;">Failed to load data.</p>`;
-    });
   </script>
 </body>
 </html>
